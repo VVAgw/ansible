@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: [hosttest]
 
   become: true
   tasks:
