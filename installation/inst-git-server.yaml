@@ -1,1 +1,58 @@
+---
+- name: Установка и настройка Git-сервера
+  hosts: [hosttest]
+  become: yes  # Используем sudo для выполнения задач
+
+  vars:
+    git_user: vva  # Замените на имя пользователя Git
+    git_user_password:   # Замените на пароль для пользователя Git
+    git_repositories:
+      - name: project1.git
+        path: /srv/git
+
+  tasks:
+    - name: Обновление списка пакетов
+      apt:
+        update_cache: yes
+
+    - name: Установка Git
+      apt:
+        name: git
+        state: present
+
+    - name: Создание директории для репозиториев
+      file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ git_user }}"
+        group: "{{ git_user }}"
+      with_items: "{{ git_repositories }}"
+
+    - name: Инициализация репозиториев
+      command: git init --bare
+      args:
+        chdir: "{{ item.path }}"
+        creates: "{{ item.path }}"
+      with_items: "{{ git_repositories }}"
+
+    - name: Создание пользователя Git
+      user:
+        name: "{{ git_user }}"
+        password: "{{ git_user_password | password_hash('sha512') }}"
+        shell: /bin/bash
+        createhome: no
+      when: not (git_user | is_username_in_passwd)
+
+    - name: Добавление пользователя Git в группу www-data (для доступа через HTTP)
+      user:
+        name: "{{ git_user }}"
+        groups: www-data
+        append: yes
+      when: not (git_user | is_username_in_group)
+
+    - name: Установка SSH-ключей для пользователя Git
+      authorized_key:
+        user: "{{ git_user }}"
+        key: "{{ lookup('file', '/path/to/your/ssh/key.pub') }}"
+      when: lookup('file', '/path/to/your/ssh/key.pub') is not none
 
